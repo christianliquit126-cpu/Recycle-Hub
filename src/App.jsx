@@ -327,83 +327,10 @@ function HomePage({ navigate }) {
         .home-card-icon.blue  { background: var(--blue-main); }
         .home-card-icon.teal  { background: var(--green-mid); }
         .home-card-icon.gray  { background: var(--gray-500); }
-        /* Footer */
-        .site-footer {
-          background: var(--green-dark);
-          color: rgba(255,255,255,0.75);
-          padding: 2rem 1.5rem;
-          margin-top: 3rem;
-        }
-        .footer-inner {
-          max-width: 900px;
-          margin: 0 auto;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 1rem;
-          text-align: center;
-        }
-        .footer-brand {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .footer-logo {
-          width: 28px;
-          height: 28px;
-          object-fit: contain;
-          border-radius: 4px;
-        }
-        .footer-brand-name {
-          font-size: 1rem;
-          font-weight: 700;
-          color: var(--white);
-        }
-        .footer-links {
-          display: flex;
-          gap: 1.25rem;
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-        .footer-link {
-          background: none;
-          border: none;
-          color: rgba(255,255,255,0.7);
-          font-size: 0.875rem;
-          cursor: pointer;
-          padding: 0;
-          transition: color 0.15s;
-        }
-        .footer-link:hover { color: var(--white); }
-        .footer-copy {
-          font-size: 0.8125rem;
-          color: rgba(255,255,255,0.45);
-        }
-        /* Back to top */
-        .back-to-top {
-          position: fixed;
-          bottom: 1.75rem;
-          right: 1.75rem;
-          background: var(--green-main);
-          color: var(--white);
-          border: none;
-          border-radius: var(--radius);
-          padding: 0.5rem 1rem;
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          box-shadow: var(--shadow-md);
-          z-index: 200;
-          transition: background 0.2s, transform 0.1s;
-        }
-        .back-to-top:hover { background: var(--green-dark); }
-        .back-to-top:active { transform: translateY(1px); }
         @media (max-width: 500px) {
           .home-title { font-size: 1.75rem; }
           .stats-strip { padding: 1rem; gap: 0; }
           .stats-val { font-size: 1.5rem; }
-          .footer-links { gap: 0.75rem; }
-          .back-to-top { bottom: 1rem; right: 1rem; }
         }
       `}</style>
     </div>
