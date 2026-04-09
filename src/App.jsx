@@ -9,13 +9,12 @@ import Announcements from './components/Announcements';
 import Feedback from './components/Feedback';
 import AdminDashboard from './components/AdminDashboard';
 import AdminLogin from './components/AdminLogin';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { collection, onSnapshot } from 'firebase/firestore';
 
-// Map hash routes to page keys
 function getPageFromHash() {
-  const hash = window.location.hash.replace('#', '') || 'home';
-  return hash;
+  return window.location.hash.replace('#', '') || 'home';
 }
 
 function App() {
@@ -23,14 +22,12 @@ function App() {
   const [adminUser, setAdminUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Listen for hash changes (back/forward nav)
   useEffect(() => {
     const handler = () => setPage(getPageFromHash());
     window.addEventListener('hashchange', handler);
     return () => window.removeEventListener('hashchange', handler);
   }, []);
 
-  // Track Firebase auth state
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       setAdminUser(user);
@@ -39,30 +36,21 @@ function App() {
     return unsub;
   }, []);
 
-  // Navigate programmatically
   const navigate = (p) => {
     window.location.hash = p;
     setPage(p);
   };
 
-  // Render current page
   const renderPage = () => {
     switch (page) {
-      case 'submit':
-        return <SubmitRecyclables />;
-      case 'request':
-        return <RequestMaterials />;
-      case 'announcements':
-        return <Announcements />;
-      case 'feedback':
-        return <Feedback />;
+      case 'submit':       return <SubmitRecyclables />;
+      case 'request':      return <RequestMaterials />;
+      case 'announcements':return <Announcements />;
+      case 'feedback':     return <Feedback />;
       case 'admin':
         if (authLoading) return <div className="loading">Loading...</div>;
-        return adminUser
-          ? <AdminDashboard adminUser={adminUser} />
-          : <AdminLogin />;
-      default:
-        return <HomePage navigate={navigate} />;
+        return adminUser ? <AdminDashboard adminUser={adminUser} /> : <AdminLogin />;
+      default:             return <HomePage navigate={navigate} />;
     }
   };
 
@@ -74,8 +62,40 @@ function App() {
   );
 }
 
-// Home / landing page
+// ── Improvement #1: Live stats bar on home page ──────────────────────────────
+function useLiveStats() {
+  const [stats, setStats] = useState({ totalQty: 0, contributors: 0, pending: 0 });
+
+  useEffect(() => {
+    const unsubs = [];
+
+    // Listen to recyclables for total quantity and unique contributors
+    unsubs.push(
+      onSnapshot(collection(db, 'recyclables'), (snap) => {
+        const docs = snap.docs.map((d) => d.data());
+        const totalQty = docs.reduce((s, d) => s + (d.quantity || 0), 0);
+        const contributors = new Set(docs.map((d) => d.name)).size;
+        setStats((s) => ({ ...s, totalQty, contributors }));
+      })
+    );
+
+    // Listen to requests for pending count
+    unsubs.push(
+      onSnapshot(collection(db, 'requests'), (snap) => {
+        const pending = snap.docs.filter((d) => d.data().status === 'Pending').length;
+        setStats((s) => ({ ...s, pending }));
+      })
+    );
+
+    return () => unsubs.forEach((u) => u());
+  }, []);
+
+  return stats;
+}
+
 function HomePage({ navigate }) {
+  const stats = useLiveStats();
+
   return (
     <div className="page-wrapper">
       <div className="home-hero">
@@ -91,6 +111,24 @@ function HomePage({ navigate }) {
           <button className="btn btn-secondary" onClick={() => navigate('request')}>
             Request Materials
           </button>
+        </div>
+      </div>
+
+      {/* Live stats strip */}
+      <div className="stats-strip">
+        <div className="stats-item">
+          <div className="stats-val">{stats.totalQty}</div>
+          <div className="stats-lbl">Units Collected</div>
+        </div>
+        <div className="stats-divider" />
+        <div className="stats-item">
+          <div className="stats-val">{stats.contributors}</div>
+          <div className="stats-lbl">Contributors</div>
+        </div>
+        <div className="stats-divider" />
+        <div className="stats-item">
+          <div className="stats-val">{stats.pending}</div>
+          <div className="stats-lbl">Pending Requests</div>
         </div>
       </div>
 
@@ -120,7 +158,7 @@ function HomePage({ navigate }) {
       <style>{`
         .home-hero {
           text-align: center;
-          padding: 3rem 1rem 2.5rem;
+          padding: 3rem 1rem 2rem;
         }
         .home-title {
           font-size: 2.5rem;
@@ -140,11 +178,45 @@ function HomePage({ navigate }) {
           justify-content: center;
           flex-wrap: wrap;
         }
+        /* Live stats strip */
+        .stats-strip {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0;
+          background: var(--white);
+          border: 1px solid var(--gray-200);
+          border-radius: var(--radius-lg);
+          padding: 1.25rem 2rem;
+          margin: 1.5rem 0 2rem;
+          box-shadow: var(--shadow-sm);
+        }
+        .stats-item {
+          flex: 1;
+          text-align: center;
+        }
+        .stats-val {
+          font-size: 2rem;
+          font-weight: 700;
+          color: var(--green-main);
+          line-height: 1.2;
+        }
+        .stats-lbl {
+          font-size: 0.8125rem;
+          color: var(--gray-600);
+          margin-top: 0.2rem;
+        }
+        .stats-divider {
+          width: 1px;
+          height: 40px;
+          background: var(--gray-200);
+          margin: 0 1rem;
+          flex-shrink: 0;
+        }
         .home-cards {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
           gap: 1.25rem;
-          margin-top: 2.5rem;
         }
         .home-card {
           background: var(--white);
@@ -180,11 +252,13 @@ function HomePage({ navigate }) {
           color: var(--white);
         }
         .home-card-icon.green { background: var(--green-main); }
-        .home-card-icon.blue { background: var(--blue-main); }
-        .home-card-icon.teal { background: var(--green-mid); }
-        .home-card-icon.gray { background: var(--gray-500); }
+        .home-card-icon.blue  { background: var(--blue-main); }
+        .home-card-icon.teal  { background: var(--green-mid); }
+        .home-card-icon.gray  { background: var(--gray-500); }
         @media (max-width: 500px) {
           .home-title { font-size: 1.75rem; }
+          .stats-strip { padding: 1rem; gap: 0; }
+          .stats-val { font-size: 1.5rem; }
         }
       `}</style>
     </div>

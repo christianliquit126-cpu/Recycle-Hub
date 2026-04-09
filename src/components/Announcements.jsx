@@ -1,14 +1,48 @@
 // Announcements page
-// Displays admin-posted announcements in real time
+// Improvement #6: Read more / collapse for long announcements
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 
+const PREVIEW_LENGTH = 200; // characters before "Read more" kicks in
+
+function AnnouncementCard({ ann, formatDate }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = ann.body && ann.body.length > PREVIEW_LENGTH;
+  const bodyText = isLong && !expanded
+    ? ann.body.slice(0, PREVIEW_LENGTH).trimEnd() + '...'
+    : ann.body;
+
+  return (
+    <div className="ann-card">
+      <div className="ann-header">
+        <h2 className="ann-title">{ann.title}</h2>
+        <span className="ann-date">{formatDate(ann.postedAt)}</span>
+      </div>
+      {ann.category && (
+        <span className="ann-category">{ann.category}</span>
+      )}
+      <p className="ann-body">{bodyText}</p>
+      {isLong && (
+        <button
+          className="ann-toggle"
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? 'Show less' : 'Read more'}
+        </button>
+      )}
+      {ann.postedBy && (
+        <div className="ann-author">Posted by {ann.postedBy}</div>
+      )}
+    </div>
+  );
+}
+
 function Announcements() {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterCat, setFilterCat] = useState('');
 
-  // Real-time listener for announcements collection
   useEffect(() => {
     const q = query(collection(db, 'announcements'), orderBy('postedAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
@@ -25,6 +59,13 @@ function Announcements() {
     });
   };
 
+  // Collect unique categories for filter
+  const categories = [...new Set(announcements.map((a) => a.category).filter(Boolean))];
+
+  const visible = filterCat
+    ? announcements.filter((a) => a.category === filterCat)
+    : announcements;
+
   return (
     <div className="page-wrapper">
       <div className="page-header">
@@ -32,33 +73,65 @@ function Announcements() {
         <p>Stay informed with the latest updates from the school administration.</p>
       </div>
 
+      {/* Category filter */}
+      {categories.length > 0 && (
+        <div className="ann-filter-row">
+          <button
+            className={`ann-filter-btn${filterCat === '' ? ' active' : ''}`}
+            onClick={() => setFilterCat('')}
+          >
+            All
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              className={`ann-filter-btn${filterCat === cat ? ' active' : ''}`}
+              onClick={() => setFilterCat(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="loading">Loading announcements...</div>
-      ) : announcements.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="empty-state card">
-          <p>No announcements have been posted yet. Check back soon.</p>
+          <p>No announcements found.</p>
         </div>
       ) : (
         <div className="ann-list">
-          {announcements.map((ann) => (
-            <div key={ann.id} className="ann-card">
-              <div className="ann-header">
-                <h2 className="ann-title">{ann.title}</h2>
-                <span className="ann-date">{formatDate(ann.postedAt)}</span>
-              </div>
-              {ann.category && (
-                <span className="ann-category">{ann.category}</span>
-              )}
-              <p className="ann-body">{ann.body}</p>
-              {ann.postedBy && (
-                <div className="ann-author">Posted by {ann.postedBy}</div>
-              )}
-            </div>
+          {visible.map((ann) => (
+            <AnnouncementCard key={ann.id} ann={ann} formatDate={formatDate} />
           ))}
         </div>
       )}
 
       <style>{`
+        .ann-filter-row {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          margin-bottom: 1.5rem;
+        }
+        .ann-filter-btn {
+          background: var(--white);
+          border: 1.5px solid var(--gray-300);
+          border-radius: 999px;
+          padding: 0.3rem 1rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: var(--gray-700);
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .ann-filter-btn:hover { border-color: var(--green-main); color: var(--green-main); }
+        .ann-filter-btn.active {
+          background: var(--green-main);
+          border-color: var(--green-main);
+          color: var(--white);
+        }
         .ann-list {
           display: flex;
           flex-direction: column;
@@ -107,7 +180,18 @@ function Announcements() {
           font-size: 0.9375rem;
           line-height: 1.65;
           white-space: pre-wrap;
+          margin-bottom: 0.5rem;
+        }
+        .ann-toggle {
+          background: none;
+          border: none;
+          color: var(--green-main);
+          font-size: 0.875rem;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 0;
           margin-bottom: 0.75rem;
+          text-decoration: underline;
         }
         .ann-author {
           font-size: 0.8125rem;

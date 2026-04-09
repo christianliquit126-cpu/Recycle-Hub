@@ -1,31 +1,27 @@
 // Request Materials page
-// Users can request recyclable materials for arts and crafts projects
+// Improvement #2: Status filter (All / Pending / Approved / Fulfilled)
+// Improvement #5: Character counter on purpose textarea
 import { useState, useEffect } from 'react';
 import {
-  collection,
-  addDoc,
-  onSnapshot,
-  serverTimestamp,
-  query,
-  orderBy,
+  collection, addDoc, onSnapshot,
+  serverTimestamp, query, orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
+const PURPOSE_MAX = 300;
+const STATUS_FILTERS = ['All', 'Pending', 'Approved', 'Fulfilled'];
+
 function RequestMaterials() {
   const [form, setForm] = useState({
-    name: '',
-    gradeClass: '',
-    materials: '',
-    quantity: '',
-    purpose: '',
+    name: '', gradeClass: '', materials: '', quantity: '', purpose: '',
   });
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const [errors, setErrors] = useState({});
+  const [statusFilter, setStatusFilter] = useState('All'); // Improvement #2
 
-  // Real-time listener for requests
   useEffect(() => {
     const q = query(collection(db, 'requests'), orderBy('submittedAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
@@ -37,27 +33,28 @@ function RequestMaterials() {
 
   const validate = () => {
     const e = {};
-    if (!form.name.trim()) e.name = 'Name is required.';
+    if (!form.name.trim())      e.name = 'Name is required.';
     if (!form.gradeClass.trim()) e.gradeClass = 'Grade/Class is required.';
     if (!form.materials.trim()) e.materials = 'Materials needed is required.';
-    if (!form.quantity.trim()) e.quantity = 'Quantity is required.';
-    if (!form.purpose.trim()) e.purpose = 'Project description is required.';
+    if (!form.quantity.trim())  e.quantity = 'Quantity is required.';
+    if (!form.purpose.trim())   e.purpose = 'Project description is required.';
     return e;
   };
 
   const handleChange = (e) => {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-    setErrors((err) => ({ ...err, [e.target.name]: undefined }));
+    const { name, value } = e.target;
+    // Enforce character limit on purpose
+    if (name === 'purpose' && value.length > PURPOSE_MAX) return;
+    setForm((f) => ({ ...f, [name]: value }));
+    setErrors((err) => ({ ...err, [name]: undefined }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-
     setSubmitting(true);
     setMessage(null);
-
     try {
       await addDoc(collection(db, 'requests'), {
         name: form.name.trim(),
@@ -85,6 +82,11 @@ function RequestMaterials() {
     });
   };
 
+  // Improvement #2: apply status filter
+  const filtered = statusFilter === 'All'
+    ? requests
+    : requests.filter((r) => r.status === statusFilter);
+
   return (
     <div className="page-wrapper">
       <div className="page-header">
@@ -95,35 +97,20 @@ function RequestMaterials() {
       {/* Request form */}
       <div className="form-card" style={{ marginBottom: '2rem' }}>
         <h2 style={{ marginBottom: '1.25rem', color: 'var(--green-main)' }}>New Request</h2>
-
-        {message && (
-          <div className={`alert alert-${message.type}`}>{message.text}</div>
-        )}
+        {message && <div className={`alert alert-${message.type}`}>{message.text}</div>}
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="req-name">Full Name</label>
-              <input
-                id="req-name"
-                name="name"
-                type="text"
-                placeholder="e.g. Juan dela Cruz"
-                value={form.name}
-                onChange={handleChange}
-              />
+              <input id="req-name" name="name" type="text"
+                placeholder="e.g. Juan dela Cruz" value={form.name} onChange={handleChange} />
               {errors.name && <span className="field-error">{errors.name}</span>}
             </div>
             <div className="form-group">
               <label htmlFor="req-class">Grade / Class</label>
-              <input
-                id="req-class"
-                name="gradeClass"
-                type="text"
-                placeholder="e.g. Grade 4 - Section B"
-                value={form.gradeClass}
-                onChange={handleChange}
-              />
+              <input id="req-class" name="gradeClass" type="text"
+                placeholder="e.g. Grade 4 - Section B" value={form.gradeClass} onChange={handleChange} />
               {errors.gradeClass && <span className="field-error">{errors.gradeClass}</span>}
             </div>
           </div>
@@ -131,39 +118,28 @@ function RequestMaterials() {
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="req-materials">Materials Needed</label>
-              <input
-                id="req-materials"
-                name="materials"
-                type="text"
+              <input id="req-materials" name="materials" type="text"
                 placeholder="e.g. Cardboard sheets, plastic bottles"
-                value={form.materials}
-                onChange={handleChange}
-              />
+                value={form.materials} onChange={handleChange} />
               {errors.materials && <span className="field-error">{errors.materials}</span>}
             </div>
             <div className="form-group">
               <label htmlFor="req-quantity">Quantity</label>
-              <input
-                id="req-quantity"
-                name="quantity"
-                type="text"
-                placeholder="e.g. 20 sheets"
-                value={form.quantity}
-                onChange={handleChange}
-              />
+              <input id="req-quantity" name="quantity" type="text"
+                placeholder="e.g. 20 sheets" value={form.quantity} onChange={handleChange} />
               {errors.quantity && <span className="field-error">{errors.quantity}</span>}
             </div>
           </div>
 
           <div className="form-group">
             <label htmlFor="req-purpose">Purpose / Project Description</label>
-            <textarea
-              id="req-purpose"
-              name="purpose"
+            <textarea id="req-purpose" name="purpose"
               placeholder="Describe what the materials will be used for..."
-              value={form.purpose}
-              onChange={handleChange}
-            />
+              value={form.purpose} onChange={handleChange} />
+            {/* Improvement #5: character counter */}
+            <div className="char-counter">
+              {form.purpose.length} / {PURPOSE_MAX}
+            </div>
             {errors.purpose && <span className="field-error">{errors.purpose}</span>}
           </div>
 
@@ -173,16 +149,33 @@ function RequestMaterials() {
         </form>
       </div>
 
-      {/* Request list */}
+      {/* Request list with filter */}
       <div className="card">
-        <h2 style={{ marginBottom: '1.25rem', color: 'var(--green-main)' }}>My Requests</h2>
+        <div className="req-list-header">
+          <h2 style={{ color: 'var(--green-main)' }}>All Requests</h2>
+          {/* Improvement #2: status filter tabs */}
+          <div className="status-filter-row">
+            {STATUS_FILTERS.map((s) => (
+              <button
+                key={s}
+                className={`status-filter-btn${statusFilter === s ? ' active' : ''}`}
+                onClick={() => setStatusFilter(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {loading ? (
           <div className="loading">Loading requests...</div>
-        ) : requests.length === 0 ? (
-          <div className="empty-state"><p>No requests have been submitted yet.</p></div>
+        ) : filtered.length === 0 ? (
+          <div className="empty-state">
+            <p>{statusFilter === 'All' ? 'No requests yet.' : `No ${statusFilter} requests.`}</p>
+          </div>
         ) : (
           <div className="request-list">
-            {requests.map((req) => (
+            {filtered.map((req) => (
               <div key={req.id} className="request-item">
                 <div className="request-top">
                   <div>
@@ -204,17 +197,35 @@ function RequestMaterials() {
       </div>
 
       <style>{`
-        .field-error {
-          display: block;
-          color: var(--red);
-          font-size: 0.8125rem;
-          margin-top: 0.3rem;
-        }
-        .request-list {
+        .field-error { display: block; color: var(--red); font-size: 0.8125rem; margin-top: 0.3rem; }
+        .char-counter { font-size: 0.8rem; color: var(--gray-500); text-align: right; margin-top: 0.25rem; }
+        .req-list-header {
           display: flex;
-          flex-direction: column;
+          justify-content: space-between;
+          align-items: center;
           gap: 1rem;
+          margin-bottom: 1.25rem;
+          flex-wrap: wrap;
         }
+        .status-filter-row { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+        .status-filter-btn {
+          background: var(--white);
+          border: 1.5px solid var(--gray-300);
+          border-radius: 999px;
+          padding: 0.25rem 0.875rem;
+          font-size: 0.8125rem;
+          font-weight: 500;
+          color: var(--gray-700);
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .status-filter-btn:hover { border-color: var(--green-main); color: var(--green-main); }
+        .status-filter-btn.active {
+          background: var(--green-main);
+          border-color: var(--green-main);
+          color: var(--white);
+        }
+        .request-list { display: flex; flex-direction: column; gap: 1rem; }
         .request-item {
           border: 1px solid var(--gray-200);
           border-radius: var(--radius);
@@ -222,35 +233,16 @@ function RequestMaterials() {
           background: var(--gray-50);
         }
         .request-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 0.5rem;
-          gap: 0.5rem;
+          display: flex; justify-content: space-between;
+          align-items: flex-start; margin-bottom: 0.5rem; gap: 0.5rem;
         }
-        .req-class {
-          display: block;
-          font-size: 0.8125rem;
-          color: var(--gray-600);
-          margin-top: 0.1rem;
-        }
+        .req-class { display: block; font-size: 0.8125rem; color: var(--gray-600); margin-top: 0.1rem; }
         .request-details {
-          display: flex;
-          gap: 1.5rem;
-          font-size: 0.875rem;
-          color: var(--gray-700);
-          margin-bottom: 0.4rem;
-          flex-wrap: wrap;
+          display: flex; gap: 1.5rem; font-size: 0.875rem;
+          color: var(--gray-700); margin-bottom: 0.4rem; flex-wrap: wrap;
         }
-        .request-purpose {
-          font-size: 0.875rem;
-          color: var(--gray-600);
-          margin-bottom: 0.5rem;
-        }
-        .request-date {
-          font-size: 0.8rem;
-          color: var(--gray-500);
-        }
+        .request-purpose { font-size: 0.875rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .request-date { font-size: 0.8rem; color: var(--gray-500); }
       `}</style>
     </div>
   );
