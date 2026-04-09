@@ -1,6 +1,5 @@
-// Feedback page
-// Improvement #5: Character counter on suggestions textarea
-import { useState } from 'react';
+// Improvement #7: Auto-dismiss success alert
+import { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -36,6 +35,16 @@ function Feedback() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const [errors, setErrors] = useState({});
+  const dismissTimer = useRef(null);
+
+  // Improvement #7: auto-dismiss success alert
+  useEffect(() => {
+    if (message?.type === 'success') {
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = setTimeout(() => setMessage(null), 4000);
+    }
+    return () => clearTimeout(dismissTimer.current);
+  }, [message]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -84,7 +93,7 @@ function Feedback() {
     <div className="page-wrapper">
       <div className="page-header">
         <h1>Give Feedback</h1>
-        <p>Help us improve the Digital Trashcan platform. Your input matters.</p>
+        <p>Help us improve the Digital Trash Can platform. Your input matters.</p>
       </div>
 
       <div className="form-card">
@@ -111,14 +120,15 @@ function Feedback() {
             <textarea id="fb-suggestions" name="suggestions"
               placeholder="Any suggestions to improve this platform?"
               value={form.suggestions} onChange={handleChange} />
-            {/* Improvement #5: character counter */}
             <div className="char-counter">
               {form.suggestions.length} / {SUGGESTIONS_MAX}
             </div>
           </div>
 
           <button className="btn btn-primary btn-full" type="submit" disabled={submitting}>
-            {submitting ? 'Submitting...' : 'Submit Feedback'}
+            {submitting ? (
+              <><span className="spinner spinner-sm"></span> Submitting...</>
+            ) : 'Submit Feedback'}
           </button>
         </form>
       </div>

@@ -308,6 +308,32 @@ input[type="file"] {
   margin: 1.5rem 0;
 }
 
+/* Improvement #19: CSS loading spinner */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+.spinner-sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+.loading .spinner {
+  border-color: rgba(45,106,79,0.2);
+  border-top-color: var(--green-main);
+  width: 28px;
+  height: 28px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 600px) {
   .form-row {

@@ -1,4 +1,6 @@
-// Navigation bar component
+// Improvement #1: Logo image in brand
+// Improvement #9: Pending badge on Request nav link
+// Improvement #17: Live data animated dot
 import { useState } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -12,7 +14,7 @@ const NAV_LINKS = [
   { key: 'admin', label: 'Admin' },
 ];
 
-function Navbar({ page, navigate, adminUser }) {
+function Navbar({ page, navigate, adminUser, pendingCount }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleNav = (key) => {
@@ -29,20 +31,28 @@ function Navbar({ page, navigate, adminUser }) {
   return (
     <nav className="navbar">
       <div className="nav-inner">
-        {/* Brand */}
+        {/* Improvement #1: Logo image + brand text */}
         <button className="nav-brand" onClick={() => handleNav('home')}>
-          Digital Trashcan
+          <img src="/logo.png" alt="Digital Trash Can logo" className="nav-logo-img" />
+          Digital Trash Can
         </button>
+
+        {/* Improvement #17: Live data dot */}
+        <span className="live-dot" title="Live data"></span>
 
         {/* Desktop links */}
         <ul className="nav-links">
           {NAV_LINKS.map((link) => (
-            <li key={link.key}>
+            <li key={link.key} style={{ position: 'relative' }}>
               <button
                 className={`nav-link${page === link.key ? ' active' : ''}`}
                 onClick={() => handleNav(link.key)}
               >
                 {link.label}
+                {/* Improvement #9: Pending badge on Request */}
+                {link.key === 'request' && pendingCount > 0 && (
+                  <span className="nav-badge">{pendingCount}</span>
+                )}
               </button>
             </li>
           ))}
@@ -77,6 +87,9 @@ function Navbar({ page, navigate, adminUser }) {
               onClick={() => handleNav(link.key)}
             >
               {link.label}
+              {link.key === 'request' && pendingCount > 0 && (
+                <span className="nav-badge nav-badge-mobile">{pendingCount}</span>
+              )}
             </button>
           ))}
           {adminUser && (
@@ -103,6 +116,7 @@ function Navbar({ page, navigate, adminUser }) {
           margin: 0 auto;
           padding: 0 1.25rem;
           height: 60px;
+          gap: 0.5rem;
         }
         .nav-brand {
           background: none;
@@ -114,12 +128,37 @@ function Navbar({ page, navigate, adminUser }) {
           letter-spacing: 0.02em;
           padding: 0;
           flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .nav-logo-img {
+          width: 28px;
+          height: 28px;
+          object-fit: contain;
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+        /* Improvement #17: live dot */
+        .live-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #52b788;
+          flex-shrink: 0;
+          animation: livePulse 2s ease-in-out infinite;
+          margin-left: 0.25rem;
+        }
+        @keyframes livePulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.75); }
         }
         .nav-links {
           display: flex;
           list-style: none;
           gap: 0.25rem;
           align-items: center;
+          margin-left: auto;
         }
         .nav-link {
           background: none;
@@ -131,6 +170,10 @@ function Navbar({ page, navigate, adminUser }) {
           padding: 0.375rem 0.75rem;
           border-radius: var(--radius);
           transition: background 0.15s, color 0.15s;
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
         }
         .nav-link:hover {
           background: rgba(255,255,255,0.12);
@@ -143,6 +186,21 @@ function Navbar({ page, navigate, adminUser }) {
         }
         .btn-signout {
           color: var(--green-light);
+        }
+        /* Improvement #9: pending badge */
+        .nav-badge {
+          background: #e07a00;
+          color: #fff;
+          font-size: 0.65rem;
+          font-weight: 700;
+          border-radius: 999px;
+          padding: 0.1rem 0.4rem;
+          min-width: 18px;
+          text-align: center;
+          line-height: 1.4;
+        }
+        .nav-badge-mobile {
+          margin-left: 0.5rem;
         }
         .nav-hamburger {
           display: none;
@@ -179,6 +237,8 @@ function Navbar({ page, navigate, adminUser }) {
           text-align: left;
           border-radius: var(--radius);
           transition: background 0.15s;
+          display: flex;
+          align-items: center;
         }
         .nav-mobile-link:hover, .nav-mobile-link.active {
           background: rgba(255,255,255,0.12);
@@ -190,6 +250,7 @@ function Navbar({ page, navigate, adminUser }) {
         @media (max-width: 720px) {
           .nav-links { display: none; }
           .nav-hamburger { display: flex; }
+          .live-dot { display: none; }
         }
       `}</style>
     </nav>

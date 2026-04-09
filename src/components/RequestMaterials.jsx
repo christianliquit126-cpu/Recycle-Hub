@@ -1,7 +1,8 @@
-// Request Materials page
-// Improvement #2: Status filter (All / Pending / Approved / Fulfilled)
-// Improvement #5: Character counter on purpose textarea
-import { useState, useEffect } from 'react';
+// Improvement #3: Address field
+// Improvement #7: Auto-dismiss success alert
+// Improvement #14: Relative time display
+// Improvement #20: Print requests list
+import { useState, useEffect, useRef } from 'react';
 import {
   collection, addDoc, onSnapshot,
   serverTimestamp, query, orderBy,
@@ -11,16 +12,33 @@ import { db } from '../firebase';
 const PURPOSE_MAX = 300;
 const STATUS_FILTERS = ['All', 'Pending', 'Approved', 'Fulfilled'];
 
+// Improvement #14: relative time helper
+function relativeTime(ts) {
+  if (!ts) return '';
+  const now = Date.now();
+  const then = ts.seconds * 1000;
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return new Date(then).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 function RequestMaterials() {
   const [form, setForm] = useState({
-    name: '', gradeClass: '', materials: '', quantity: '', purpose: '',
+    name: '', gradeClass: '', address: '', materials: '', quantity: '', purpose: '',
   });
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const [errors, setErrors] = useState({});
-  const [statusFilter, setStatusFilter] = useState('All'); // Improvement #2
+  const [statusFilter, setStatusFilter] = useState('All');
+  const dismissTimer = useRef(null);
 
   useEffect(() => {
     const q = query(collection(db, 'requests'), orderBy('submittedAt', 'desc'));
@@ -31,10 +49,20 @@ function RequestMaterials() {
     return unsub;
   }, []);
 
+  // Improvement #7: auto-dismiss success alert
+  useEffect(() => {
+    if (message?.type === 'success') {
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = setTimeout(() => setMessage(null), 4000);
+    }
+    return () => clearTimeout(dismissTimer.current);
+  }, [message]);
+
   const validate = () => {
     const e = {};
     if (!form.name.trim())      e.name = 'Name is required.';
     if (!form.gradeClass.trim()) e.gradeClass = 'Grade/Class is required.';
+    if (!form.address.trim())   e.address = 'Address is required.';
     if (!form.materials.trim()) e.materials = 'Materials needed is required.';
     if (!form.quantity.trim())  e.quantity = 'Quantity is required.';
     if (!form.purpose.trim())   e.purpose = 'Project description is required.';
@@ -43,7 +71,6 @@ function RequestMaterials() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // Enforce character limit on purpose
     if (name === 'purpose' && value.length > PURPOSE_MAX) return;
     setForm((f) => ({ ...f, [name]: value }));
     setErrors((err) => ({ ...err, [name]: undefined }));
@@ -59,6 +86,7 @@ function RequestMaterials() {
       await addDoc(collection(db, 'requests'), {
         name: form.name.trim(),
         gradeClass: form.gradeClass.trim(),
+        address: form.address.trim(),
         materials: form.materials.trim(),
         quantity: form.quantity.trim(),
         purpose: form.purpose.trim(),
@@ -66,7 +94,7 @@ function RequestMaterials() {
         submittedAt: serverTimestamp(),
       });
       setMessage({ type: 'success', text: 'Your request has been submitted.' });
-      setForm({ name: '', gradeClass: '', materials: '', quantity: '', purpose: '' });
+      setForm({ name: '', gradeClass: '', address: '', materials: '', quantity: '', purpose: '' });
     } catch (err) {
       console.error(err);
       setMessage({ type: 'error', text: 'Failed to submit. Please try again.' });
@@ -82,10 +110,12 @@ function RequestMaterials() {
     });
   };
 
-  // Improvement #2: apply status filter
   const filtered = statusFilter === 'All'
     ? requests
     : requests.filter((r) => r.status === statusFilter);
+
+  // Improvement #20: print requests list
+  const handlePrint = () => window.print();
 
   return (
     <div className="page-wrapper">
@@ -115,6 +145,15 @@ function RequestMaterials() {
             </div>
           </div>
 
+          {/* Improvement #3: Address field */}
+          <div className="form-group">
+            <label htmlFor="req-address">Home Address</label>
+            <input id="req-address" name="address" type="text"
+              placeholder="e.g. 123 Mabini St., Brgy. San Jose, Manila"
+              value={form.address} onChange={handleChange} />
+            {errors.address && <span className="field-error">{errors.address}</span>}
+          </div>
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="req-materials">Materials Needed</label>
@@ -136,7 +175,6 @@ function RequestMaterials() {
             <textarea id="req-purpose" name="purpose"
               placeholder="Describe what the materials will be used for..."
               value={form.purpose} onChange={handleChange} />
-            {/* Improvement #5: character counter */}
             <div className="char-counter">
               {form.purpose.length} / {PURPOSE_MAX}
             </div>
@@ -144,7 +182,9 @@ function RequestMaterials() {
           </div>
 
           <button className="btn btn-primary btn-full" type="submit" disabled={submitting}>
-            {submitting ? 'Submitting...' : 'Submit Request'}
+            {submitting ? (
+              <><span className="spinner spinner-sm"></span> Submitting...</>
+            ) : 'Submit Request'}
           </button>
         </form>
       </div>
@@ -153,22 +193,27 @@ function RequestMaterials() {
       <div className="card">
         <div className="req-list-header">
           <h2 style={{ color: 'var(--green-main)' }}>All Requests</h2>
-          {/* Improvement #2: status filter tabs */}
-          <div className="status-filter-row">
-            {STATUS_FILTERS.map((s) => (
-              <button
-                key={s}
-                className={`status-filter-btn${statusFilter === s ? ' active' : ''}`}
-                onClick={() => setStatusFilter(s)}
-              >
-                {s}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="status-filter-row">
+              {STATUS_FILTERS.map((s) => (
+                <button
+                  key={s}
+                  className={`status-filter-btn${statusFilter === s ? ' active' : ''}`}
+                  onClick={() => setStatusFilter(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            {/* Improvement #20: print button */}
+            <button className="btn btn-secondary btn-sm no-print" onClick={handlePrint}>
+              Print
+            </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="loading">Loading requests...</div>
+          <div className="loading"><span className="spinner"></span></div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <p>{statusFilter === 'All' ? 'No requests yet.' : `No ${statusFilter} requests.`}</p>
@@ -181,6 +226,9 @@ function RequestMaterials() {
                   <div>
                     <strong>{req.name}</strong>
                     <span className="req-class">{req.gradeClass}</span>
+                    {req.address && (
+                      <span className="req-address">{req.address}</span>
+                    )}
                   </div>
                   <span className={`badge badge-${req.status?.toLowerCase()}`}>{req.status}</span>
                 </div>
@@ -189,7 +237,10 @@ function RequestMaterials() {
                   <span><strong>Qty:</strong> {req.quantity}</span>
                 </div>
                 <p className="request-purpose">{req.purpose}</p>
-                <div className="request-date">{formatDate(req.submittedAt)}</div>
+                {/* Improvement #14: relative time */}
+                <div className="request-date" title={formatDate(req.submittedAt)}>
+                  {relativeTime(req.submittedAt)}
+                </div>
               </div>
             ))}
           </div>
@@ -237,12 +288,19 @@ function RequestMaterials() {
           align-items: flex-start; margin-bottom: 0.5rem; gap: 0.5rem;
         }
         .req-class { display: block; font-size: 0.8125rem; color: var(--gray-600); margin-top: 0.1rem; }
+        .req-address { display: block; font-size: 0.8rem; color: var(--gray-500); margin-top: 0.1rem; }
         .request-details {
           display: flex; gap: 1.5rem; font-size: 0.875rem;
           color: var(--gray-700); margin-bottom: 0.4rem; flex-wrap: wrap;
         }
         .request-purpose { font-size: 0.875rem; color: var(--gray-600); margin-bottom: 0.5rem; }
         .request-date { font-size: 0.8rem; color: var(--gray-500); }
+        @media print {
+          .no-print { display: none !important; }
+          .navbar, .site-footer, .back-to-top { display: none !important; }
+          .form-card { display: none !important; }
+          .page-wrapper { padding: 0; }
+        }
       `}</style>
     </div>
   );

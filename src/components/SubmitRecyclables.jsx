@@ -1,6 +1,8 @@
-// Submit Recyclables page
-// Improvement #3: Top Contributors leaderboard (real-time)
-import { useState, useEffect } from 'react';
+// Improvement #2: Address field
+// Improvement #6: Photo preview before upload
+// Improvement #7: Auto-dismiss success alert
+// Improvement #19: CSS loading spinner
+import { useState, useEffect, useRef } from 'react';
 import {
   collection, addDoc, onSnapshot,
   serverTimestamp, query, orderBy,
@@ -10,7 +12,6 @@ import { db, storage } from '../firebase';
 
 const RECYCLABLE_TYPES = ['Paper', 'Plastic', 'Cardboard', 'Others'];
 
-// Improvement #3: compute top contributors from submissions list
 function useLeaderboard() {
   const [leaders, setLeaders] = useState([]);
 
@@ -35,17 +36,31 @@ function useLeaderboard() {
 }
 
 function SubmitRecyclables() {
-  const [form, setForm] = useState({ name: '', gradeClass: '', type: '', quantity: '' });
+  const [form, setForm] = useState({
+    name: '', gradeClass: '', address: '', type: '', quantity: '',
+  });
   const [photo, setPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null); // Improvement #6
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const [errors, setErrors] = useState({});
-  const leaders = useLeaderboard(); // Improvement #3
+  const leaders = useLeaderboard();
+  const dismissTimer = useRef(null);
+
+  // Improvement #7: auto-dismiss success alert
+  useEffect(() => {
+    if (message?.type === 'success') {
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = setTimeout(() => setMessage(null), 4000);
+    }
+    return () => clearTimeout(dismissTimer.current);
+  }, [message]);
 
   const validate = () => {
     const e = {};
     if (!form.name.trim()) e.name = 'Name is required.';
     if (!form.gradeClass.trim()) e.gradeClass = 'Grade/Class is required.';
+    if (!form.address.trim()) e.address = 'Address is required.';
     if (!form.type) e.type = 'Please select a type.';
     if (!form.quantity || isNaN(form.quantity) || Number(form.quantity) <= 0)
       e.quantity = 'Enter a valid quantity.';
@@ -64,6 +79,20 @@ function SubmitRecyclables() {
       return;
     }
     setPhoto(file || null);
+    // Improvement #6: generate preview URL
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPhotoPreview(url);
+    } else {
+      setPhotoPreview(null);
+    }
+  };
+
+  const clearPhoto = () => {
+    setPhoto(null);
+    setPhotoPreview(null);
+    const fileInput = document.getElementById('photo-input');
+    if (fileInput) fileInput.value = '';
   };
 
   const handleSubmit = async (e) => {
@@ -82,16 +111,15 @@ function SubmitRecyclables() {
       await addDoc(collection(db, 'recyclables'), {
         name: form.name.trim(),
         gradeClass: form.gradeClass.trim(),
+        address: form.address.trim(),
         type: form.type,
         quantity: Number(form.quantity),
         photoUrl,
         submittedAt: serverTimestamp(),
       });
       setMessage({ type: 'success', text: 'Your submission has been recorded. Thank you!' });
-      setForm({ name: '', gradeClass: '', type: '', quantity: '' });
-      setPhoto(null);
-      const fileInput = document.getElementById('photo-input');
-      if (fileInput) fileInput.value = '';
+      setForm({ name: '', gradeClass: '', address: '', type: '', quantity: '' });
+      clearPhoto();
     } catch (err) {
       console.error('Submit error:', err);
       setMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
@@ -110,7 +138,11 @@ function SubmitRecyclables() {
       <div className="submit-layout">
         {/* Form */}
         <div className="form-card">
-          {message && <div className={`alert alert-${message.type}`}>{message.text}</div>}
+          {message && (
+            <div className={`alert alert-${message.type}`}>
+              {message.text}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} noValidate>
             <div className="form-row">
@@ -126,6 +158,15 @@ function SubmitRecyclables() {
                   placeholder="e.g. Grade 5 - Section A" value={form.gradeClass} onChange={handleChange} />
                 {errors.gradeClass && <span className="field-error">{errors.gradeClass}</span>}
               </div>
+            </div>
+
+            {/* Improvement #2: Address field */}
+            <div className="form-group">
+              <label htmlFor="address">Home Address</label>
+              <input id="address" name="address" type="text"
+                placeholder="e.g. 123 Mabini St., Brgy. San Jose, Manila"
+                value={form.address} onChange={handleChange} />
+              {errors.address && <span className="field-error">{errors.address}</span>}
             </div>
 
             <div className="form-row">
@@ -148,15 +189,27 @@ function SubmitRecyclables() {
             <div className="form-group">
               <label htmlFor="photo-input">Photo (optional, max 5 MB)</label>
               <input id="photo-input" type="file" accept="image/*" onChange={handlePhoto} />
+              {/* Improvement #6: photo preview */}
+              {photoPreview && (
+                <div className="photo-preview-wrap">
+                  <img src={photoPreview} alt="Preview" className="photo-preview-img" />
+                  <button type="button" className="photo-preview-remove" onClick={clearPhoto}>
+                    Remove
+                  </button>
+                </div>
+              )}
             </div>
 
             <button type="submit" className="btn btn-primary btn-full" disabled={submitting}>
-              {submitting ? 'Submitting...' : 'Submit Recyclables'}
+              {/* Improvement #19: spinner inside button */}
+              {submitting ? (
+                <><span className="spinner spinner-sm"></span> Submitting...</>
+              ) : 'Submit Recyclables'}
             </button>
           </form>
         </div>
 
-        {/* Improvement #3: Top Contributors leaderboard */}
+        {/* Top Contributors leaderboard */}
         <div className="leaderboard-card">
           <h3 className="lb-title">Top Contributors</h3>
           {leaders.length === 0 ? (
@@ -226,6 +279,31 @@ function SubmitRecyclables() {
         .lb-rank.rank-3 { background: #cd7f32; color: #fff; }
         .lb-name { flex: 1; font-weight: 500; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .lb-qty { font-size: 0.8125rem; color: var(--gray-500); white-space: nowrap; }
+        /* Improvement #6: photo preview */
+        .photo-preview-wrap {
+          margin-top: 0.75rem;
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+        }
+        .photo-preview-img {
+          width: 90px;
+          height: 90px;
+          object-fit: cover;
+          border-radius: var(--radius);
+          border: 1px solid var(--gray-200);
+        }
+        .photo-preview-remove {
+          background: none;
+          border: 1px solid var(--gray-300);
+          border-radius: var(--radius);
+          padding: 0.25rem 0.625rem;
+          font-size: 0.8125rem;
+          color: var(--red);
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .photo-preview-remove:hover { background: var(--red-pale); }
         @media (max-width: 700px) {
           .submit-layout { grid-template-columns: 1fr; }
           .leaderboard-card { position: static; }

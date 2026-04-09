@@ -53,12 +53,23 @@ All stored as Replit env vars (shared):
 
 ## Features
 
-1. **Submit Recyclables** — Name, Grade/Class, Type, Quantity, optional photo upload
-2. **Request Materials** — Request form + real-time status tracking (Pending / Approved / Fulfilled)
-3. **Announcements** — Real-time public board; admin can post/delete
+1. **Submit Recyclables** — Name, Grade/Class, Address, Type, Quantity, photo upload with preview
+2. **Request Materials** — Request form (with Address field) + real-time status tracking (Pending / Approved / Fulfilled) + print button
+3. **Announcements** — Real-time public board; admin can post/delete with category filter
 4. **Feedback** — Rating survey (usability, helpfulness) + suggestions
-5. **Admin Dashboard** — Stats cards, bar chart, pie chart, request management, announcement posting, feedback overview
+5. **Admin Dashboard** — Stats cards, bar/pie charts, search filters, CSV exports (both recyclables and requests), inline delete confirmation, photo lightbox, status notes, pending badge on tabs
 6. **Admin Auth** — Firebase email/password login
+7. **Logo/Favicon** — Custom logo PNG in navbar and browser tab
+8. **Professional Footer** — Navigation links + copyright
+9. **Live data indicator** — Animated dot in navbar showing real-time updates
+10. **Pending badge** — Live count badge on navbar Request link
+11. **Back-to-top button** — Floating button appears on scroll
+12. **Auto-dismiss alerts** — Success messages auto-clear after 4 seconds
+13. **Scroll to top** — Smooth scroll to top on page navigation
+14. **Page tab titles** — Browser tab title updates per page
+15. **Relative timestamps** — "3 days ago" display in requests list
+16. **CSS spinners** — Animated spinners replacing plain loading text
+17. **Photo preview** — Thumbnail preview before submitting recyclable photo
 
 ## Workflow
 
