@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd digital-trashcan && npm install && npm run build",
+  "outputDirectory": "digital-trashcan/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
